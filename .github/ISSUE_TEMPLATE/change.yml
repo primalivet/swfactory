@@ -1,0 +1,32 @@
+name: Change request
+description: Work item for the factory. Describe behavior, not implementation.
+labels: ["factory:new"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong or missing, from a user's point of view?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Desired behavior
+      description: Observable CLI behavior (commands, stdout, stderr, exit codes).
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Black-box checks that prove it is done. One per line.
+      placeholder: |
+        - `todo rm 1` prints `removed 1`, exit 0
+        - `todo rm x` prints `error: invalid id: x` on stderr, exit 1
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope

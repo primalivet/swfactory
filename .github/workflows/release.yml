@@ -1,0 +1,28 @@
+# DEPLOY: every green push to main becomes a GitHub Release with the app as a tarball.
+name: release
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Pack and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          tag="v$(date -u +%Y.%m.%d).${{ github.run_number }}"
+          tar czf todo.tar.gz app/
+          gh release create "$tag" todo.tar.gz --target "$SHA" --title "$tag" --generate-notes

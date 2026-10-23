@@ -1,0 +1,32 @@
+# GATES: required status checks on every PR. Names are referenced by branch protection.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop -c pnpm install --frozen-lockfile
+      - run: nix develop -c pnpm typecheck
+      - run: nix develop -c pnpm test:blackbox
+
+  protected-paths:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node factory/gates/protected-paths.ts origin/${{ github.base_ref }}
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

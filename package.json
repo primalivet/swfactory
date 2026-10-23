@@ -1,0 +1,16 @@
+{
+  "name": "swfactory",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.0",
+  "scripts": {
+    "todo": "node app/src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test:blackbox": "node --test 'tests/blackbox/**/*.test.ts'",
+    "loop": "node factory/loop.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

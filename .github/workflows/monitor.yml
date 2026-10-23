@@ -1,0 +1,46 @@
+# MONITOR: run the black-box suite against the latest released artifact.
+# Failure becomes a queue item (SIGNAL → QUEUE).
+name: monitor
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Find latest release
+        id: rel
+        run: echo "tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.rel.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install released artifact
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          gh release download "${{ steps.rel.outputs.tag }}" -p todo.tar.gz -D "$RUNNER_TEMP"
+          tar xzf "$RUNNER_TEMP/todo.tar.gz" -C "$RUNNER_TEMP/release"
+      - name: Black-box suite against release
+        run: node --test 'tests/blackbox/**/*.test.ts'
+        env:
+          TODO_CLI: ${{ runner.temp }}/release/app/src/cli.ts
+      - name: File queue item on failure
+        if: failure()
+        run: |
+          gh issue create \
+            --title "monitor: release ${{ steps.rel.outputs.tag }} failed smoke test" \
+            --label "factory:new" --label "source:monitor" \
+            --body "Black-box suite failed against released artifact \`${{ steps.rel.outputs.tag }}\`.
+
+          Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
