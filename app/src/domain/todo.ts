@@ -5,6 +5,12 @@ export class TodoError extends Error {}
 
 export const emptyList = (): TodoList => ({ nextId: 1, items: [] });
 
+export function parseId(raw: string | undefined): number {
+  if (raw === undefined) throw new TodoError("id is required");
+  if (!/^[1-9]\d*$/.test(raw)) throw new TodoError(`invalid id: ${raw}`);
+  return Number(raw);
+}
+
 export function add(list: TodoList, text: string): [TodoList, Todo] {
   if (text.trim() === "") throw new TodoError("text is required");
   const todo = { id: list.nextId, text, done: false };

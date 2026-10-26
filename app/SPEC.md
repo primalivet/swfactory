@@ -28,3 +28,5 @@ Errors print `error: <message>` to stderr and exit 1. No stdout.
 - unknown command
 - `add` without text
 - `done` with an id that does not exist
+- `done` without an id: `id is required`
+- `done` with an id that is not a positive integer: `invalid id: <arg>`
