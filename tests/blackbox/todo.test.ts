@@ -41,6 +41,12 @@ for (const [name, args, msg] of [
   ["unknown command", ["frobnicate"], "error: unknown command: frobnicate"],
   ["add without text", ["add"], "error: text is required"],
   ["done with missing id", ["done", "9"], "error: no todo with id 9"],
+  ["done without id", ["done"], "error: id is required"],
+  ["done abc", ["done", "abc"], "error: invalid id: abc"],
+  ["done 1abc", ["done", "1abc"], "error: invalid id: 1abc"],
+  ["done 0", ["done", "0"], "error: invalid id: 0"],
+  ["done -1", ["done", "-1"], "error: invalid id: -1"],
+  ["done 1.5", ["done", "1.5"], "error: invalid id: 1.5"],
 ] as const) {
   test(`error: ${name}`, () => {
     assert.deepEqual(session()(...args), { out: "", err: msg, code: 1 });

@@ -1,4 +1,4 @@
-import { add, complete, TodoError } from "./domain/todo.ts";
+import { add, complete, parseId, TodoError } from "./domain/todo.ts";
 import { load, save } from "./infra/file-store.ts";
 
 const file = process.env.TODO_FILE ?? ".todo.json";
@@ -14,7 +14,7 @@ async function run([cmd, ...args]: string[]): Promise<string[]> {
     case "list":
       return list.items.map((t) => `[${t.done ? "x" : " "}] ${t.id} ${t.text}`);
     case "done": {
-      const id = Number(args[0]);
+      const id = parseId(args[0]);
       await save(file, complete(list, id));
       return [`done ${id}`];
     }
