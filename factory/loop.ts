@@ -81,4 +81,5 @@ if (import.meta.main) {
   const res = runLoop({ cwd: ".", model, task, max: Number(maxArg ?? 3), runDir });
   writeFileSync(join(runDir, "result.json"), JSON.stringify(res, null, 2));
   console.log(`${res.ok ? "green" : "red"}, total $${res.usage.costUsd.toFixed(4)}, log: ${runDir}`);
+  if (!res.ok) process.exitCode = 1;
 }
