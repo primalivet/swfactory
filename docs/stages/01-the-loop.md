@@ -1,5 +1,8 @@
 # Stage 1 — the bare loop
 
+> Since stage 2, `factory/loop.ts` runs pi on OpenRouter instead of
+> `claude -p`. The lessons below come from the Claude version.
+
 The atom of a factory: one agent, one task, repeat until a check says done.
 
 ```
