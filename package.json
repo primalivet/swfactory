@@ -7,7 +7,8 @@
     "todo": "node app/src/cli.ts",
     "typecheck": "tsc --noEmit",
     "test:blackbox": "node --test 'tests/blackbox/**/*.test.ts'",
-    "loop": "node factory/loop.ts"
+    "loop": "node factory/loop.ts",
+    "bench": "node factory/bench.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
