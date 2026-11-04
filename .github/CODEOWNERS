@@ -1,0 +1,5 @@
+# Trust roots: intent, oracle, gates and factory. A code owner must approve changes.
+/.github/        @primalivet
+/factory/        @primalivet
+/app/SPEC.md     @primalivet
+/tests/blackbox/ @primalivet

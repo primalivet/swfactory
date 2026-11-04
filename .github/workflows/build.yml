@@ -1,0 +1,119 @@
+# BUILD STATION: an approver labels an issue factory:planned → agent implements the plan → PR as swfactory-build[bot].
+name: build
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: build-${{ github.event.issue.number }}
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  APPROVERS: primalivet
+  MODEL: z-ai/glm-5.3-flash
+  PI_VERSION: 1.4.0
+  ISSUE: ${{ github.event.issue.number }}
+  BRANCH: issue-${{ github.event.issue.number }}
+
+jobs:
+  build:
+    if: github.event.label.name == 'factory:planned'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Only approvers can start a build
+        if: ${{ !contains(format(',{0},', env.APPROVERS), format(',{0},', github.event.sender.login)) }}
+        run: |
+          echo "::error::${{ github.event.sender.login }} is not an approver"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Mark building
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:planned --add-label factory:building
+
+      - name: Build task from issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: nix develop -c node factory/build-task.ts "$ISSUE" > "$RUNNER_TEMP/task.md"
+
+      - name: Install
+        run: |
+          nix develop -c pnpm install --frozen-lockfile
+          npm install --prefix "$RUNNER_TEMP/pi" "@earendil-works/pi-coding-agent@$PI_VERSION"
+          echo "$RUNNER_TEMP/pi/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Preflight
+        run: nix develop -c sh -c 'pnpm -s typecheck && pnpm -s test:blackbox'
+
+      - name: Agent loop
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: nix develop -c node factory/loop.ts "$MODEL" "$(cat "$RUNNER_TEMP/task.md")" 3 | tee "$RUNNER_TEMP/loop.txt"
+
+      - name: Secret scan
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          git add -A
+          if git diff --cached | grep -qF "$OPENROUTER_API_KEY"; then
+            echo "::error::diff contains OPENROUTER_API_KEY"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runs-issue-${{ github.event.issue.number }}
+          path: runs/
+          if-no-files-found: ignore
+
+      # The App token exists only after the agent has finished.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ secrets.BUILD_BOT_APP_ID }}
+          private-key: ${{ secrets.BUILD_BOT_PRIVATE_KEY }}
+
+      - name: Push and open PR as the bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}[bot]
+        run: |
+          id="$(gh api "users/$BOT" --jq .id)"
+          git -c user.name="$BOT" -c user.email="$id+$BOT@users.noreply.github.com" \
+            commit -q -m "Implement #$ISSUE" -m "Closes #$ISSUE"
+          git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "$(gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json title -q .title)" \
+            --body "Closes #$ISSUE
+
+          Built by the build station (\`$MODEL\`, pi $PI_VERSION). Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          \`\`\`
+          $(tail -n 5 "$RUNNER_TEMP/loop.txt")
+          \`\`\`"
+
+      - name: Mark review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:building --add-label factory:review
+
+      - name: Mark blocked on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:building --add-label factory:blocked
+          gh issue comment "$ISSUE" -R "$GITHUB_REPOSITORY" --body "Build station failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

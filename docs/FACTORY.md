@@ -39,7 +39,8 @@ automated one by one.
 | review gate    | branch protection (`factory/setup-github.sh`) |
 | deploy         | `.github/workflows/release.yml`        |
 | monitor        | `.github/workflows/monitor.yml`        |
-| build station  | `factory/loop.ts` (prototype, stage 1) |
+| build station  | `.github/workflows/build.yml`, `factory/build-task.ts`, `factory/loop.ts` |
+| code owners    | `.github/CODEOWNERS`                   |
 
 ## Who does each station
 
@@ -69,7 +70,7 @@ extra GitHub account.
                                          ▼
                                     1-hour token: this repo only, App's permissions
                                          ▼
-                                    push branch, open PR → author swfactory-build-bot[bot]
+                                    push branch, open PR → author swfactory-build[bot]
 ```
 
 Why: GitHub forbids approving your own PR. With a bot author, a required
@@ -83,7 +84,7 @@ Why not the alternatives:
 | fine-grained token of a human  | still the human; no separation                     |
 | second GitHub account          | extra account to own and secure                    |
 
-### `swfactory-build-bot` settings
+### `swfactory-build` settings (login `swfactory-build[bot]`)
 
 | Field                              | Value                                   |
 |------------------------------------|-----------------------------------------|
@@ -120,6 +121,39 @@ Why not the alternatives:
 The private key is generated under Credentials → **Key pairs**, not "Client
 secrets". Delete the downloaded `.pem` once stored. Rotate: generate a new
 key, update the secret, delete the old key on the App page.
+
+## Build station (`.github/workflows/build.yml`)
+
+Starts when an approver labels an issue `factory:planned`.
+
+```
+ sender in APPROVERS? ── no ──► fail → factory:blocked
+   ▼ yes
+ GITHUB_TOKEN: planned → building
+ factory/build-task.ts: issue body (only if an approver wrote it) + latest **Plan** comment by an approver
+ pnpm install, pi (pinned) ─► preflight checks
+ factory/loop.ts: pi + MODEL, tools read/edit/write, max 3 iterations ── red ──► factory:blocked
+ secret scan: diff must not contain OPENROUTER_API_KEY
+ upload runs/ as artifact
+ App token minted ─► commit as swfactory-build[bot] ─► push issue-N ─► PR "Closes #N"
+ GITHUB_TOKEN: building → review
+```
+
+Safety choices:
+
+| Choice | Against |
+|--------|---------|
+| only approvers can start a build | anyone labelling on a public repo |
+| only approver-written text reaches the agent | prompt injection via issue body or comments |
+| `GH_TOKEN` only in the steps that need it | agent reading the token from its environment |
+| App token minted after the agent finished | agent using the bot's push rights |
+| secret scan of the diff | agent writing `OPENROUTER_API_KEY` into a file, then into a public PR |
+| App has no `Workflows` permission | agent editing `.github/workflows/` (GitHub rejects the push) |
+| CODEOWNERS + 1 required approval | bot changes to spec, tests, gates or factory merging without the owner |
+
+Not covered yet: the agent can still read `OPENROUTER_API_KEY` from its
+environment and use it, up to the key's OpenRouter credit limit ($15 per
+week, set on the key in OpenRouter).
 
 ## Runbook: manual stations (step A)
 

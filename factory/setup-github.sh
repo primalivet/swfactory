@@ -17,12 +17,18 @@ label "factory:blocked"  "b60205" "Needs human input (question asked on the issu
 label "source:monitor"   "d93f0b" "Filed by the monitor"
 label "intent-change"    "5319e7" "Human-approved change to spec, tests or factory"
 
-# REVIEW GATE: main only changes through PRs with green required checks.
+# REVIEW GATE: main only changes through PRs with green required checks and one approval.
+# Files in .github/CODEOWNERS need the owner's approval. Bot PRs: the owner approves.
+# The owner's own PRs cannot be self-approved; enforce_admins=false lets the owner merge them.
 gh api -X PUT "repos/$repo/branches/main/protection" --input - <<'JSON'
 {
   "required_status_checks": { "strict": true, "contexts": ["checks", "protected-paths"] },
   "enforce_admins": false,
-  "required_pull_request_reviews": null,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "require_code_owner_reviews": true,
+    "dismiss_stale_reviews": true
+  },
   "restrictions": null,
   "allow_force_pushes": false,
   "allow_deletions": false
