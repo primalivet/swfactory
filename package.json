@@ -6,6 +6,7 @@
   "scripts": {
     "todo": "node app/src/cli.ts",
     "typecheck": "tsc --noEmit",
+    "check:arch": "node factory/gates/architecture.ts",
     "test:blackbox": "node --test 'tests/blackbox/**/*.test.ts'",
     "loop": "node factory/loop.ts",
     "bench": "node factory/bench.ts"

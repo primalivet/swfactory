@@ -15,6 +15,7 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - run: nix develop -c pnpm install --frozen-lockfile
       - run: nix develop -c pnpm typecheck
+      - run: nix develop -c pnpm check:arch
       - run: nix develop -c pnpm test:blackbox
 
   protected-paths:
