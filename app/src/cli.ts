@@ -1,4 +1,4 @@
-import { add, complete, edit, parseId, remove, TodoError } from "./domain/todo.ts";
+import { add, clear, complete, edit, parseId, remove, TodoError } from "./domain/todo.ts";
 import { load, save } from "./infra/file-store.ts";
 
 const file = process.env.TODO_FILE ?? ".todo.json";
@@ -28,6 +28,11 @@ async function run([cmd, ...args]: string[]): Promise<string[]> {
       const id = parseId(args[0]);
       await save(file, remove(list, id));
       return [`removed ${id}`];
+    }
+    case "clear": {
+      const [next, count] = clear(list);
+      await save(file, next);
+      return [`cleared ${count}`];
     }
     default:
       throw new TodoError(`unknown command: ${cmd ?? "(none)"}`);
