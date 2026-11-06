@@ -90,6 +90,31 @@ test("failed edit (missing text) leaves the file unchanged", () => {
   assert.equal(todo("list").out, "[ ] 1 a");
 });
 
+test("undone reopens a done item", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("done", "1");
+  assert.deepEqual(todo("undone", "1"), { out: "undone 1", err: "", code: 0 });
+  assert.equal(todo("list").out, "[ ] 1 a");
+});
+
+test("undone succeeds when the item is not done", () => {
+  const todo = session();
+  todo("add", "a");
+  assert.deepEqual(todo("undone", "1"), { out: "undone 1", err: "", code: 0 });
+  assert.equal(todo("list").out, "[ ] 1 a");
+});
+
+test("undone targets only the given id", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("add", "b");
+  todo("done", "1");
+  todo("done", "2");
+  assert.deepEqual(todo("undone", "2"), { out: "undone 2", err: "", code: 0 });
+  assert.equal(todo("list").out, "[x] 1 a\n[ ] 2 b");
+});
+
 for (const [name, args, msg] of [
   ["unknown command", ["frobnicate"], "error: unknown command: frobnicate"],
   ["add without text", ["add"], "error: text is required"],
@@ -110,6 +135,12 @@ for (const [name, args, msg] of [
   ["edit without text", ["edit", "1"], "error: text is required"],
   ["edit x", ["edit", "x", "hi"], "error: invalid id: x"],
   ["edit with missing id", ["edit", "9", "hi"], "error: no todo with id 9"],
+  ["undone with missing id", ["undone", "9"], "error: no todo with id 9"],
+  ["undone without id", ["undone"], "error: id is required"],
+  ["undone x", ["undone", "x"], "error: invalid id: x"],
+  ["undone 0", ["undone", "0"], "error: invalid id: 0"],
+  ["undone -1", ["undone", "-1"], "error: invalid id: -1"],
+  ["undone 1.5", ["undone", "1.5"], "error: invalid id: 1.5"],
 ] as const) {
   test(`error: ${name}`, () => {
     assert.deepEqual(session()(...args), { out: "", err: msg, code: 1 });
