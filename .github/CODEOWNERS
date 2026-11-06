@@ -1,5 +1,22 @@
-# Trust roots: intent, oracle, gates and factory. A code owner must approve changes.
-/.github/        @primalivet
-/factory/        @primalivet
-/app/SPEC.md     @primalivet
-/tests/blackbox/ @primalivet
+# Trust roots: files that decide how agent work is judged, or what runs with which rights.
+# A code owner must approve changes. factory/gates/protected-paths.ts reads this list from
+# the PR's base branch: changes here also need the intent-change label.
+# Supported patterns: /file and /dir/ (no globs).
+
+# what is checked: intent and oracle
+/app/SPEC.md       @primalivet
+/tests/blackbox/   @primalivet
+
+# who checks: gates, workflows, factory (incl. factory/bench/ hidden tests)
+/.github/          @primalivet
+/factory/          @primalivet
+
+# what the checks run: scripts, compiler, dependencies, toolchain
+/package.json      @primalivet
+/pnpm-lock.yaml    @primalivet
+/tsconfig.json     @primalivet
+/flake.nix         @primalivet
+/flake.lock        @primalivet
+
+# what runs on a developer machine (direnv)
+/.envrc            @primalivet

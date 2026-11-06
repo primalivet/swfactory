@@ -18,7 +18,7 @@ automated one by one.
  BUILD    branch + change + PR "Closes #N" → review
         ▼
  GATES    ci.yml required checks: checks (typecheck, black-box),
-          protected-paths (spec/tests/factory need `intent-change`)
+          protected-paths (trust roots need `intent-change`)
         ▼
  REVIEW   [HUMAN merges]  (branch protection: PR + green checks)
           merge closes issue ──► done.yml: strip factory:*; completed → factory:done
@@ -83,6 +83,32 @@ Desired GitHub state is declared at the top of `factory/github.ts`.
 
 Run `node factory/github.ts assert` after `setup` and after any change in repo
 or App settings.
+
+## Trust roots
+
+A trust root is a file that decides how agent work is judged, or what runs
+with which rights. If an agent can change it, it can change the rules for
+its own work. Example: a PR sets `"test:blackbox": "echo ok"` in
+`package.json`; the loop and CI go green with zero tests.
+
+| Group                | Paths                                                  |
+|----------------------|--------------------------------------------------------|
+| what is checked      | `app/SPEC.md`, `tests/blackbox/`                       |
+| who checks           | `.github/`, `factory/` (incl. `factory/bench/`)        |
+| what the checks run  | `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, `flake.nix`, `flake.lock` |
+| what runs on a dev machine | `.envrc` (direnv)                                |
+
+One list: `.github/CODEOWNERS`. Two enforcers read it:
+
+```
+ .github/CODEOWNERS ──► GitHub: code owner must approve
+        │
+        └─(base ref)─► factory/gates/protected-paths.ts: PR needs intent-change
+```
+
+The gate reads the list from the PR's base, so a PR cannot shrink it for
+itself. Only `/file` and `/dir/` patterns are supported; others fail the gate.
+Cost: dependency bumps and tsconfig changes also need `intent-change`.
 
 ## Agent identity (GitHub App)
 
@@ -177,7 +203,7 @@ Safety choices:
 | App token minted after the agent finished | agent using the bot's push rights |
 | secret scan of the diff | agent writing `OPENROUTER_API_KEY` into a file, then into a public PR |
 | App has no `Workflows` permission | agent editing `.github/workflows/` (GitHub rejects the push) |
-| CODEOWNERS + 1 required approval | bot changes to spec, tests, gates or factory merging without the owner |
+| CODEOWNERS + 1 required approval | bot changes to trust roots merging without the owner |
 
 Not covered yet: the agent can still read `OPENROUTER_API_KEY` from its
 environment and use it, up to the key's OpenRouter credit limit ($15 per
@@ -206,8 +232,8 @@ Gaps found while running the factory. Revisit after the full set of examples.
 
 1. **Gates can rewrite themselves.** `pull_request` runs `ci.yml` and
    `factory/gates/protected-paths.ts` from the PR's own merge commit, so a PR
-   can empty `PROTECTED`, edit the workflow, or add any passing job named
-   `protected-paths`. Also: anyone with write access (incl. an agent token)
+   can edit the gate script or the workflow, or add any passing job named
+   `protected-paths`. (The list itself is read from the base ref.) Also: anyone with write access (incl. an agent token)
    can add `intent-change`; `enforce_admins` is off. Options:
    - A. run the gate via `pull_request_target`: script from `main`, PR diff as data only
    - B. CODEOWNERS + required code-owner review for `.github/`, `factory/`,
@@ -228,13 +254,16 @@ Gaps found while running the factory. Revisit after the full set of examples.
 5. **Monitor re-runs CI's suite.** It catches packaging/artifact drift only,
    not real-world signals. Fine for a CLI; a service would need runtime probes.
 6. **Release on every green push to main**, including docs-only changes.
-7. **`.envrc` is not a protected path.** direnv runs it on the developer's
-   machine. A bot PR that changes it runs code there after checkout. Add it
-   to `PROTECTED` in `factory/gates/protected-paths.ts` and to
-   `.github/CODEOWNERS`.
+7. **Trust roots were incomplete.** Solved: `.envrc`, `package.json`,
+   `pnpm-lock.yaml`, `tsconfig.json`, `flake.nix`, `flake.lock` added; one
+   list in `.github/CODEOWNERS` (see Trust roots).
 8. **Build station first run was missed.** Issue #5 got `factory:planned`
    36 s before PR #6 merged `build.yml`. `issues` events run the workflow
    from `main`, so nothing ran. A workflow is only live after merge.
+9. **No glossary.** One concept goes by several names: trust root, protected
+   path, intent/oracle paths, `intent-change` files. Define the factory's
+   terms once (station, gate, oracle, hidden test, trust root, plan,
+   approver, …) and use only those names in docs, code and labels.
 
 ## Stage notes
 
