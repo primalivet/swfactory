@@ -56,11 +56,18 @@ jobs:
       - name: Preflight
         run: nix develop -c sh -c 'pnpm -s typecheck && pnpm -s test:blackbox'
 
+      # Hidden tests and bench tasks are the oracle; the agent must not read them.
+      - name: Hide bench oracle
+        run: rm -rf factory/bench
+
       - name: Agent loop
         shell: bash
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: nix develop -c node factory/loop.ts "$MODEL" "$(cat "$RUNNER_TEMP/task.md")" 3 | tee "$RUNNER_TEMP/loop.txt"
+
+      - name: Restore bench oracle
+        run: git restore factory/bench
 
       - name: Secret scan
         env:
