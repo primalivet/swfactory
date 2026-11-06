@@ -37,10 +37,14 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
 
+      # One factory:* state at a time: drop all (e.g. triaged + planned), then set building.
       - name: Mark building
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:planned --add-label factory:building
+        run: |
+          states="$(gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json labels \
+            -q '[.labels[].name | select(startswith("factory:"))] | join(",")')"
+          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label "$states" --add-label factory:building
 
       - name: Build task from issue
         env:
