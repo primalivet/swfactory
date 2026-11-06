@@ -12,6 +12,7 @@ const LABELS: Label[] = [
   { name: "factory:building", color: "fbca04", description: "A build station is working on it" },
   { name: "factory:review", color: "0e8a16", description: "PR open, waiting on gates and review" },
   { name: "factory:blocked", color: "b60205", description: "Needs human input (question asked on the issue)" },
+  { name: "factory:done", color: "c2e0c6", description: "Closed as completed; left the queue" },
   // Signals and overrides
   { name: "source:monitor", color: "d93f0b", description: "Filed by the monitor" },
   { name: "intent-change", color: "5319e7", description: "Human-approved change to spec, tests or factory" },

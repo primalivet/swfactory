@@ -1,0 +1,26 @@
+# DONE: a closed issue leaves the queue. Strip factory:* state; closed as completed → factory:done.
+name: done
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  done:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+      REASON: ${{ github.event.issue.state_reason }}
+    steps:
+      - name: Set terminal state
+        run: |
+          stale="$(gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json labels \
+            -q '[.labels[].name | select(startswith("factory:") and . != "factory:done")] | join(",")')"
+          args=()
+          if [ -n "$stale" ]; then args+=(--remove-label "$stale"); fi
+          if [ "$REASON" = completed ]; then args+=(--add-label factory:done); fi
+          if [ ${#args[@]} -gt 0 ]; then gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" "${args[@]}"; fi

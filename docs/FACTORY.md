@@ -21,6 +21,7 @@ automated one by one.
           protected-paths (spec/tests/factory need `intent-change`)
         ▼
  REVIEW   [HUMAN merges]  (branch protection: PR + green checks)
+          merge closes issue ──► done.yml: strip factory:*; completed → factory:done
         ▼
  DEPLOY   release.yml: green main → GitHub Release todo.tar.gz
         ▼
@@ -39,6 +40,7 @@ automated one by one.
 | gates          | `.github/workflows/ci.yml`, `factory/gates/` |
 | review gate    | branch protection (`factory/github.ts`) |
 | deploy         | `.github/workflows/release.yml`        |
+| terminal state | `.github/workflows/done.yml`           |
 | monitor        | `.github/workflows/monitor.yml`        |
 | build station  | `.github/workflows/build.yml`, `factory/build-task.ts`, `factory/loop.ts` |
 | code owners    | `.github/CODEOWNERS`                   |
@@ -213,8 +215,9 @@ Gaps found while running the factory. Revisit after the full set of examples.
    - C. gate checks *who* added `intent-change` against an allowlist
    - D. separate review job when trust-root files change (swamp: `claude-review-integrity`)
    Leaning A + C, then B once agents have their own identity.
-2. **No terminal state.** #1 closed but kept `factory:review`. Add `factory:done`
-   or strip `factory:*` on close.
+2. **No terminal state.** Solved: `done.yml` strips `factory:*` when an issue
+   closes and adds `factory:done` if it closed as completed. Issues closed
+   before it (#1, #3, #5) keep their old labels.
 3. **PR author = human token.** Solved for bot PRs: `swfactory-build[bot]`
    opens them, the owner approves. Owner PRs (factory changes) still merge
    via admin bypass, with no review.
