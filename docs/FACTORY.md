@@ -157,6 +157,7 @@ Starts when an approver labels an issue `factory:planned`.
  GITHUB_TOKEN: planned → building
  factory/build-task.ts: issue body (only if an approver wrote it) + latest **Plan** comment by an approver
  pnpm install, pi (pinned) ─► preflight checks
+ delete factory/bench/ (hidden tests; restored before the commit)
  factory/loop.ts: pi + MODEL, tools read/edit/write, max 3 iterations ── red ──► factory:blocked
  secret scan: diff must not contain OPENROUTER_API_KEY
  upload runs/ as artifact
@@ -214,8 +215,9 @@ Gaps found while running the factory. Revisit after the full set of examples.
    Leaning A + C, then B once agents have their own identity.
 2. **No terminal state.** #1 closed but kept `factory:review`. Add `factory:done`
    or strip `factory:*` on close.
-3. **PR author = human token.** GitHub forbids approving your own PR, so B
-   needs the agent to open PRs as a separate identity (GitHub App / machine user).
+3. **PR author = human token.** Solved for bot PRs: `swfactory-build[bot]`
+   opens them, the owner approves. Owner PRs (factory changes) still merge
+   via admin bypass, with no review.
 4. **`intent-change` on every behavior change.** Any fix that adds a black-box
    test needs it, so it risks becoming a rubber stamp. Distinguish "adds
    oracle cases from approved acceptance criteria" from "changes existing
@@ -235,3 +237,5 @@ Gaps found while running the factory. Revisit after the full set of examples.
 
 - `docs/stages/00-target-and-oracle.md`: product + black-box oracle
 - `docs/stages/01-the-loop.md`: bare loop prototype and what it got wrong
+- `docs/stages/02-benchmark.md`: model benchmark with a hidden test
+- `docs/stages/03-build-station.md`: first end-to-end run of the build station
