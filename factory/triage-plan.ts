@@ -10,6 +10,8 @@ import { join, resolve } from "node:path";
 import { agent } from "./loop.ts";
 
 const TOOLS = "read,grep,find,ls";
+// A plan starts at its "Changes" line: "Changes:", "# Changes", "**Changes:**", … Text before it is dropped.
+const CHANGES_LINE = /^(#{1,6}\s+|\*\*)?Changes\b/m;
 // Paths the plan must not name: the hidden oracle (stage 3).
 const ORACLE = ["factory/bench", "acceptance.test"];
 
@@ -119,8 +121,10 @@ if (command === "fetch" && arg) {
   if (!isDecision(decision)) throw new Error(`triage: invalid decision: ${raw}`);
   console.log(JSON.stringify(decision));
 } else if (command === "plan" && arg && model && runDir) {
-  const plan = run("plan", arg, model, runDir);
-  if (!plan.startsWith("Changes:")) throw new Error(`plan: does not start with "Changes:":\n${plan}`);
+  const raw = run("plan", arg, model, runDir);
+  const start = raw.search(CHANGES_LINE);
+  if (start < 0) throw new Error(`plan: no "Changes" line:\n${raw}`);
+  const plan = raw.slice(start);
   const leak = ORACLE.find((p) => plan.includes(p));
   if (leak) throw new Error(`plan: names the hidden oracle (${leak})`);
   console.log(plan);
