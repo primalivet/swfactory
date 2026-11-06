@@ -271,6 +271,12 @@ Do these by hand. Each one is a spec for the agent that later replaces you.
 5. **Review**: read the diff against the plan, merge.
 6. **Deploy** happens on merge. Check the Releases page.
 7. **Monitor**: Actions → monitor → Run workflow to try it on demand.
+8. **Close without building** (blocked and abandoned, duplicate, won't do):
+   close as not planned, so `done.yml` does not add `factory:done`.
+   `factory:done` means built.
+   ```
+   gh issue close N --reason "not planned"
+   ```
 
 ## Review backlog
 
