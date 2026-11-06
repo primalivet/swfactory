@@ -76,10 +76,18 @@ test("edit targets the item by id, others untouched", () => {
   assert.equal(todo("list").out, "[ ] 2 new text");
 });
 
-test("failed edit leaves the file unchanged", () => {
+test("failed edit (no such id) leaves the file unchanged", () => {
   const todo = session();
-  assert.equal(todo("edit", "9", "hi").err, "error: no todo with id 9");
-  assert.equal(todo("list").out, "");
+  todo("add", "a");
+  assert.deepEqual(todo("edit", "9", "hi"), { out: "", err: "error: no todo with id 9", code: 1 });
+  assert.equal(todo("list").out, "[ ] 1 a");
+});
+
+test("failed edit (missing text) leaves the file unchanged", () => {
+  const todo = session();
+  todo("add", "a");
+  assert.deepEqual(todo("edit", "1"), { out: "", err: "error: text is required", code: 1 });
+  assert.equal(todo("list").out, "[ ] 1 a");
 });
 
 for (const [name, args, msg] of [

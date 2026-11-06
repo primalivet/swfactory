@@ -316,6 +316,14 @@ Gaps found while running the factory. Revisit after the full set of examples.
    path, intent/oracle paths, `intent-change` files. Define the factory's
    terms once (station, gate, oracle, hidden test, trust root, plan,
    approver, …) and use only those names in docs, code and labels.
+10. **No route for factory changes.** Findings from running the factory are
+    mostly changes to workflows, gates or docs (#19, #20, #22). Triage blocks
+    them (not product behavior), and the build bot cannot push
+    `.github/workflows/`. Today they are built by hand. Step E needs a route
+    for them, with the owner as reviewer.
+11. **Plan detail vs change size.** The plan agent writes the full code for
+    small features, so the human reviews the code twice. Revisit when
+    changes grow.
 
 ## Stage notes
 
@@ -323,3 +331,4 @@ Gaps found while running the factory. Revisit after the full set of examples.
 - `docs/stages/01-the-loop.md`: bare loop prototype and what it got wrong
 - `docs/stages/02-benchmark.md`: model benchmark with a hidden test
 - `docs/stages/03-build-station.md`: first end-to-end run of the build station
+- `docs/stages/04-triage-plan.md`: triage + plan station on a clear and a vague issue
