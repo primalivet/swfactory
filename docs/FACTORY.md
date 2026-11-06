@@ -11,7 +11,7 @@ automated one by one.
         ▼
  QUEUE    GitHub Issues; state = factory:* label
         ▼
- TRIAGE   triage-plan.yml (approver adds new): agent → triaged | blocked (question)
+ TRIAGE   stations.yml (approver adds new): agent → triaged | blocked (question)
         ▼
  PLAN     same run: agent plan as issue comment ──► [HUMAN approves] → planned
         ▼
@@ -42,8 +42,8 @@ automated one by one.
 | deploy         | `.github/workflows/release.yml`        |
 | terminal state | `.github/workflows/done.yml`           |
 | monitor        | `.github/workflows/monitor.yml`        |
-| triage + plan station | `.github/workflows/triage-plan.yml`, `factory/triage-plan.ts` |
-| build station  | `.github/workflows/build.yml`, `factory/build-task.ts`, `factory/loop.ts` |
+| triage + plan station | `.github/workflows/stations.yml` (job `triage-plan`), `factory/triage-plan.ts` |
+| build station  | `.github/workflows/stations.yml` (job `build`), `factory/build-task.ts`, `factory/loop.ts` |
 | code owners    | `.github/CODEOWNERS`                   |
 
 ## Who does each station
@@ -171,7 +171,9 @@ write** (comment, move labels), Metadata Read-only, all other No access.
 verify by hand.
 
 Labels set by an App token start workflows (unlike `GITHUB_TOKEN`). The bot
-cannot start a build with `factory:planned`: `build.yml` requires an approver.
+cannot start a build with `factory:planned`: the build job requires an approver.
+Both stations live in one workflow, `stations.yml`, so each label change
+starts one run; jobs whose label does not match are skipped.
 
 ### Credentials
 
@@ -186,7 +188,7 @@ The private key is generated under Credentials → **Key pairs**, not "Client
 secrets". Delete the downloaded `.pem` once stored. Rotate: generate a new
 key, update the secret, delete the old key on the App page.
 
-## Build station (`.github/workflows/build.yml`)
+## Build station (`.github/workflows/stations.yml`, job `build`)
 
 Starts when an approver labels an issue `factory:planned`.
 
@@ -222,7 +224,7 @@ Not covered yet: the agent can still read `OPENROUTER_API_KEY` from its
 environment and use it, up to the key's OpenRouter credit limit ($15 per
 week, set on the key in OpenRouter).
 
-## Triage + plan station (`.github/workflows/triage-plan.yml`)
+## Triage + plan station (`.github/workflows/stations.yml`, job `triage-plan`)
 
 Starts when an approver labels an issue `factory:new` (opening it from the
 template as an approver does that).
