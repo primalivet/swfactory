@@ -52,6 +52,36 @@ test("ids are never reused after removing the highest id", () => {
   assert.equal(todo("add", "b").out, "added 2");
 });
 
+test("edit replaces an item's text", () => {
+  const todo = session();
+  todo("add", "buy milk");
+  assert.equal(todo("edit", "1", "buy oat milk").out, "edited 1");
+  assert.equal(todo("list").out, "[ ] 1 buy oat milk");
+});
+
+test("edit keeps the done state", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("done", "1");
+  todo("edit", "1", "new text");
+  assert.equal(todo("list").out, "[x] 1 new text");
+});
+
+test("edit targets the item by id, others untouched", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("add", "b");
+  todo("rm", "1");
+  assert.equal(todo("edit", "2", "new text").out, "edited 2");
+  assert.equal(todo("list").out, "[ ] 2 new text");
+});
+
+test("failed edit leaves the file unchanged", () => {
+  const todo = session();
+  assert.equal(todo("edit", "9", "hi").err, "error: no todo with id 9");
+  assert.equal(todo("list").out, "");
+});
+
 for (const [name, args, msg] of [
   ["unknown command", ["frobnicate"], "error: unknown command: frobnicate"],
   ["add without text", ["add"], "error: text is required"],
@@ -68,6 +98,10 @@ for (const [name, args, msg] of [
   ["rm 0", ["rm", "0"], "error: invalid id: 0"],
   ["rm -1", ["rm", "-1"], "error: invalid id: -1"],
   ["rm 1.5", ["rm", "1.5"], "error: invalid id: 1.5"],
+  ["edit without id", ["edit"], "error: id is required"],
+  ["edit without text", ["edit", "1"], "error: text is required"],
+  ["edit x", ["edit", "x", "hi"], "error: invalid id: x"],
+  ["edit with missing id", ["edit", "9", "hi"], "error: no todo with id 9"],
 ] as const) {
   test(`error: ${name}`, () => {
     assert.deepEqual(session()(...args), { out: "", err: msg, code: 1 });
