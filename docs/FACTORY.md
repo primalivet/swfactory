@@ -33,10 +33,11 @@ automated one by one.
 | Factory part   | File                                   |
 |----------------|----------------------------------------|
 | intent         | `app/SPEC.md`, issue template          |
-| queue + states | `factory/setup-github.sh` (labels)     |
+| queue + states | `factory/github.ts` (labels)           |
+| GitHub setup   | `factory/github.ts`                    |
 | oracle         | `tests/blackbox/`                      |
 | gates          | `.github/workflows/ci.yml`, `factory/gates/` |
-| review gate    | branch protection (`factory/setup-github.sh`) |
+| review gate    | branch protection (`factory/github.ts`) |
 | deploy         | `.github/workflows/release.yml`        |
 | monitor        | `.github/workflows/monitor.yml`        |
 | build station  | `.github/workflows/build.yml`, `factory/build-task.ts`, `factory/loop.ts` |
@@ -56,6 +57,30 @@ automated one by one.
 
 Step E is also *maintaining* the factory: every escaped defect is answered by
 changing a gate, prompt, or rule, not just the code.
+
+## GitHub setup
+
+Desired GitHub state is declared at the top of `factory/github.ts`.
+
+```
+ factory/github.ts   LABELS, PROTECTION, SECRETS, BOTS
+        │
+        ├── setup  ──► create/update labels, branch protection (idempotent)
+        └── assert ──► compare GitHub with the declared state; exit 1 on drift,
+                       print a fix per problem
+```
+
+| Part                      | setup creates it? | assert checks it?           |
+|---------------------------|-------------------|-----------------------------|
+| labels                    | yes               | yes; also unknown `factory:*` |
+| branch protection on main | yes               | yes                         |
+| secrets                   | no (values)       | names only                  |
+| GitHub App exists         | no                | yes (bot user)              |
+| App permissions, install  | no                | no: user tokens cannot read them; checked by hand |
+| CODEOWNERS syntax         | no (file in repo) | yes (GitHub's error API)    |
+
+Run `node factory/github.ts assert` after `setup` and after any change in repo
+or App settings.
 
 ## Agent identity (GitHub App)
 
@@ -198,6 +223,13 @@ Gaps found while running the factory. Revisit after the full set of examples.
 5. **Monitor re-runs CI's suite.** It catches packaging/artifact drift only,
    not real-world signals. Fine for a CLI; a service would need runtime probes.
 6. **Release on every green push to main**, including docs-only changes.
+7. **`.envrc` is not a protected path.** direnv runs it on the developer's
+   machine. A bot PR that changes it runs code there after checkout. Add it
+   to `PROTECTED` in `factory/gates/protected-paths.ts` and to
+   `.github/CODEOWNERS`.
+8. **Build station first run was missed.** Issue #5 got `factory:planned`
+   36 s before PR #6 merged `build.yml`. `issues` events run the workflow
+   from `main`, so nothing ran. A workflow is only live after merge.
 
 ## Stage notes
 
