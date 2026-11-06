@@ -26,3 +26,10 @@ export function complete(list: TodoList, id: number): TodoList {
     items: list.items.map((t) => (t.id === id ? { ...t, done: true } : t)),
   };
 }
+
+export function remove(list: TodoList, id: number): TodoList {
+  if (!list.items.some((t) => t.id === id)) {
+    throw new TodoError(`no todo with id ${id}`);
+  }
+  return { ...list, items: list.items.filter((t) => t.id !== id) };
+}

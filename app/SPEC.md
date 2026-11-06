@@ -15,6 +15,7 @@ A missing file means an empty list.
 | `todo add <text>`  | `added <id>`                | 0    |
 | `todo list`        | one line per item, see below| 0    |
 | `todo done <id>`   | `done <id>`                 | 0    |
+| `todo rm <id>`     | `removed <id>`              | 0    |
 
 `list` line format: `[ ] <id> <text>` or `[x] <id> <text>`, in id order.
 Empty list prints nothing.
@@ -27,6 +28,6 @@ Errors print `error: <message>` to stderr and exit 1. No stdout.
 
 - unknown command
 - `add` without text
-- `done` with an id that does not exist
-- `done` without an id: `id is required`
-- `done` with an id that is not a positive integer: `invalid id: <arg>`
+- `done`/`rm` with an id that does not exist
+- `done`/`rm` without an id: `id is required`
+- `done`/`rm` with an id that is not a positive integer: `invalid id: <arg>`
