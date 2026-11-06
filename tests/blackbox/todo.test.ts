@@ -37,6 +37,21 @@ test("done marks an item", () => {
   assert.equal(todo("list").out, "[ ] 1 a\n[x] 2 b");
 });
 
+test("rm removes an item", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("add", "b");
+  assert.equal(todo("rm", "1").out, "removed 1");
+  assert.equal(todo("list").out, "[ ] 2 b");
+});
+
+test("ids are never reused after removing the highest id", () => {
+  const todo = session();
+  todo("add", "a");
+  assert.equal(todo("rm", "1").out, "removed 1");
+  assert.equal(todo("add", "b").out, "added 2");
+});
+
 for (const [name, args, msg] of [
   ["unknown command", ["frobnicate"], "error: unknown command: frobnicate"],
   ["add without text", ["add"], "error: text is required"],
@@ -47,6 +62,12 @@ for (const [name, args, msg] of [
   ["done 0", ["done", "0"], "error: invalid id: 0"],
   ["done -1", ["done", "-1"], "error: invalid id: -1"],
   ["done 1.5", ["done", "1.5"], "error: invalid id: 1.5"],
+  ["rm with missing id", ["rm", "9"], "error: no todo with id 9"],
+  ["rm without id", ["rm"], "error: id is required"],
+  ["rm x", ["rm", "x"], "error: invalid id: x"],
+  ["rm 0", ["rm", "0"], "error: invalid id: 0"],
+  ["rm -1", ["rm", "-1"], "error: invalid id: -1"],
+  ["rm 1.5", ["rm", "1.5"], "error: invalid id: 1.5"],
 ] as const) {
   test(`error: ${name}`, () => {
     assert.deepEqual(session()(...args), { out: "", err: msg, code: 1 });
