@@ -34,9 +34,25 @@ const PROTECTION = {
   allow_deletions: false,
 };
 
-// Not scriptable: secret values and GitHub Apps. `assert` checks they exist.
-const SECRETS = ["BUILD_BOT_APP_ID", "BUILD_BOT_PRIVATE_KEY", "OPENROUTER_API_KEY"];
-const BOTS = ["swfactory-build[bot]"];
+// Not scriptable: secret values and GitHub Apps. `assert` checks they exist; App permissions are checked by hand.
+// Every App: webhook off, no OAuth/Device Flow, installable on this account only, installed on this repo only.
+// Unlisted permissions: No access (Workflows in particular).
+type App = { slug: string; secrets: string[]; permissions: Record<string, "read" | "write">; why: string };
+const APPS: App[] = [
+  {
+    slug: "swfactory-build",
+    secrets: ["BUILD_BOT_APP_ID", "BUILD_BOT_PRIVATE_KEY"],
+    permissions: { contents: "write", pull_requests: "write", issues: "read", metadata: "read" },
+    why: "push the issue branch, open the PR, read the plan",
+  },
+  {
+    slug: "swfactory-triage-plan",
+    secrets: ["TRIAGE_PLAN_BOT_APP_ID", "TRIAGE_PLAN_BOT_PRIVATE_KEY"],
+    permissions: { issues: "write", metadata: "read" },
+    why: "comment questions and plans, move factory:* labels",
+  },
+];
+const SECRETS = ["OPENROUTER_API_KEY", ...APPS.flatMap((a) => a.secrets)];
 
 type Protection = {
   required_status_checks?: { strict: boolean; contexts: string[] };
@@ -118,18 +134,26 @@ function assert() {
     expect(secrets.some((s) => s.name === name), `secret ${name} missing`, `gh secret set ${name} -R ${repo}  (see docs/FACTORY.md, Credentials)`);
   }
 
-  for (const bot of BOTS) {
-    expect(!!tryGh(["api", `users/${bot}`]), `bot ${bot} does not exist`, "create the GitHub App (see docs/FACTORY.md, Agent identity)");
+  for (const app of APPS) {
+    expect(
+      !!tryGh(["api", `users/${app.slug}[bot]`]),
+      `bot ${app.slug}[bot] does not exist`,
+      `create GitHub App ${app.slug} with the permissions below (see docs/FACTORY.md, Agent identity)`,
+    );
   }
 
   const errors: { errors: unknown[] } = JSON.parse(tryGh(["api", `repos/${repo}/codeowners/errors`]) ?? '{"errors":["no CODEOWNERS file"]}');
   expect(errors.errors.length === 0, `CODEOWNERS errors: ${JSON.stringify(errors.errors)}`, "fix .github/CODEOWNERS");
 
   for (const p of problems) console.error(`FAIL ${p.what}\n     fix: ${p.fix}`);
+  const apps = APPS.map((a) => {
+    const perms = Object.entries(a.permissions).map(([k, v]) => `${k}: ${v}`).join(", ");
+    return `  - ${a.slug}: ${perms}; all other: No access (${a.why})`;
+  });
   console.log(`
 Not checkable with a user token; verify by hand at https://github.com/settings/apps:
-  - each App's permissions match docs/FACTORY.md (Workflows: No access)
-  - each App is installed on ${repo} only
+${apps.join("\n")}
+  - each App: webhook off, installed on ${repo} only
 `);
   if (problems.length > 0) {
     console.error(`${problems.length} problem(s) in ${repo}`);
