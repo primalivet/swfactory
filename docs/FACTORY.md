@@ -17,7 +17,7 @@ automated one by one.
         ▼
  BUILD    branch + change + PR "Closes #N" → review
         ▼
- GATES    ci.yml required checks: checks (typecheck, black-box),
+ GATES    ci.yml required checks: checks (typecheck, architecture, black-box),
           protected-paths (trust roots need `intent-change`)
         ▼
  REVIEW   [HUMAN merges]  (branch protection: PR + green checks)
@@ -110,6 +110,23 @@ One list: `.github/CODEOWNERS`. Two enforcers read it:
 The gate reads the list from the PR's base, so a PR cannot shrink it for
 itself. Only `/file` and `/dir/` patterns are supported; others fail the gate.
 Cost: dependency bumps and tsconfig changes also need `intent-change`.
+
+## Architecture rules (`factory/gates/architecture.ts`)
+
+Each layer imports only what its rule allows. Checked in CI (`checks` job)
+and in the agent loop (`CHECKS` in `factory/loop.ts`), so the agent sees a
+violation and can fix it before the PR.
+
+| Layer             | May import                  | Why                                   |
+|-------------------|-----------------------------|---------------------------------------|
+| `app/src/domain/` | `app/src/domain/`           | pure rules: no I/O, no infra, no CLI  |
+| `app/src/infra/`  | `app/src/domain/`, `node:*` | persists domain types; does not know the CLI |
+| `tests/blackbox/` | `node:*`                    | spawn the CLI; never import app code  |
+| `app/src/cli.ts`  | anything                    | composition + I/O edge                |
+
+Imports are found with TypeScript's `preProcessFile` (import, export-from,
+`import()`, `require`). Not covered: globals (`process`, `fetch`,
+`console`) in domain code.
 
 ## Agent identity (GitHub App)
 

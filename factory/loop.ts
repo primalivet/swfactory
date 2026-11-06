@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export const CHECKS = ["pnpm -s typecheck", "pnpm -s test:blackbox"];
+export const CHECKS = ["pnpm -s typecheck", "pnpm -s check:arch", "pnpm -s test:blackbox"];
 const TOOLS = "read,edit,write";
 const AGENT_TIMEOUT_MS = 10 * 60_000;
 
