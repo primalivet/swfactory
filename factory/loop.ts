@@ -44,14 +44,32 @@ function usageOf(events: string): Usage {
   return u;
 }
 
-function agent(opts: { cwd: string; model: string; prompt: string; sessionDir: string; resume: boolean; log: string }) {
-  const args = ["-p", "--mode", "json", "-nc", "-ne", "-ns", "--provider", "openrouter", "--model", opts.model,
-    "--tools", TOOLS, "--session-dir", opts.sessionDir];
+// Text of the last assistant message.
+function finalText(events: string): string {
+  let text = "";
+  for (const line of events.split("\n")) {
+    if (!line.startsWith("{")) continue;
+    const ev = JSON.parse(line);
+    if (ev.type !== "message_end" || ev.message?.role !== "assistant") continue;
+    const parts: unknown[] = Array.isArray(ev.message.content) ? ev.message.content : [];
+    const t = parts.flatMap((c) =>
+      typeof c === "object" && c !== null && "type" in c && c.type === "text" && "text" in c && typeof c.text === "string" ? [c.text] : [],
+    );
+    if (t.length > 0) text = t.join("\n");
+  }
+  return text;
+}
+
+export function agent(opts: {
+  cwd: string; model: string; prompt: string; sessionDir: string; resume: boolean; log: string; tools?: string;
+}) {
+  const args = ["-p", "--mode", "json", "-nc", "-ne", "-ns", "--no-mcp", "--provider", "openrouter", "--model", opts.model,
+    "--tools", opts.tools ?? TOOLS, "--session-dir", opts.sessionDir];
   if (opts.resume) args.push("--continue");
   args.push(opts.prompt);
   const r = spawnSync("pi", args, { cwd: opts.cwd, encoding: "utf8", maxBuffer: 256 << 20, timeout: AGENT_TIMEOUT_MS });
   writeFileSync(opts.log, `${r.stdout}${r.stderr}`);
-  return { exitCode: r.status ?? 1, usage: usageOf(r.stdout) };
+  return { exitCode: r.status ?? 1, usage: usageOf(r.stdout), text: finalText(r.stdout) };
 }
 
 export function runLoop(opts: { cwd: string; model: string; task: string; max: number; runDir: string }): LoopResult {

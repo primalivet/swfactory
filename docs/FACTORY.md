@@ -11,9 +11,9 @@ automated one by one.
         ▼
  QUEUE    GitHub Issues; state = factory:* label
         ▼
- TRIAGE   new → triaged | blocked (question on issue)
+ TRIAGE   triage-plan.yml (approver adds new): agent → triaged | blocked (question)
         ▼
- PLAN     plan as issue comment ──► [HUMAN approves] → planned
+ PLAN     same run: agent plan as issue comment ──► [HUMAN approves] → planned
         ▼
  BUILD    branch + change + PR "Closes #N" → review
         ▼
@@ -42,6 +42,7 @@ automated one by one.
 | deploy         | `.github/workflows/release.yml`        |
 | terminal state | `.github/workflows/done.yml`           |
 | monitor        | `.github/workflows/monitor.yml`        |
+| triage + plan station | `.github/workflows/triage-plan.yml`, `factory/triage-plan.ts` |
 | build station  | `.github/workflows/build.yml`, `factory/build-task.ts`, `factory/loop.ts` |
 | code owners    | `.github/CODEOWNERS`                   |
 
@@ -162,12 +163,22 @@ Why not the alternatives:
 - Unconfirmed: `Pull requests: write` may let the bot label its own PR
   (incl. `intent-change`). Do not rely on the label alone (backlog item 1, option C).
 
+### `swfactory-triage-plan` (login `swfactory-triage-plan[bot]`)
+
+Same settings as `swfactory-build`, except permissions: Issues **Read and
+write** (comment, move labels), Metadata Read-only, all other No access.
+`APPS` in `factory/github.ts` declares both Apps; `assert` prints what to
+verify by hand.
+
+Labels set by an App token start workflows (unlike `GITHUB_TOKEN`). The bot
+cannot start a build with `factory:planned`: `build.yml` requires an approver.
+
 ### Credentials
 
 | Credential      | Used? | Where                                     |
 |-----------------|-------|-------------------------------------------|
-| App ID          | yes   | repo secret `BUILD_BOT_APP_ID`                 |
-| private key     | yes   | repo secret `BUILD_BOT_PRIVATE_KEY` (full `.pem` content) |
+| App ID          | yes   | repo secrets `BUILD_BOT_APP_ID`, `TRIAGE_PLAN_BOT_APP_ID` |
+| private key     | yes   | repo secrets `BUILD_BOT_PRIVATE_KEY`, `TRIAGE_PLAN_BOT_PRIVATE_KEY` (full `.pem` content) |
 | client secret   | no    | OAuth only; GitHub requires one to exist; never stored |
 | OpenRouter key  | yes   | repo secret `OPENROUTER_API_KEY`           |
 
@@ -183,7 +194,9 @@ Starts when an approver labels an issue `factory:planned`.
  sender in APPROVERS? ── no ──► fail → factory:blocked
    ▼ yes
  GITHUB_TOKEN: planned → building
- factory/build-task.ts: issue body (only if an approver wrote it) + latest **Plan** comment by an approver
+ factory/build-task.ts: issue body (only if an approver wrote it) + approved plan:
+   latest **Plan** comment by an approver or swfactory-triage-plan[bot],
+   last edited before an approver added factory:planned
  pnpm install, pi (pinned) ─► preflight checks
  delete factory/bench/ (hidden tests; restored before the commit)
  factory/loop.ts: pi + MODEL, tools read/edit/write, max 3 iterations ── red ──► factory:blocked
@@ -208,6 +221,39 @@ Safety choices:
 Not covered yet: the agent can still read `OPENROUTER_API_KEY` from its
 environment and use it, up to the key's OpenRouter credit limit ($15 per
 week, set on the key in OpenRouter).
+
+## Triage + plan station (`.github/workflows/triage-plan.yml`)
+
+Starts when an approver labels an issue `factory:new` (opening it from the
+template as an approver does that).
+
+```
+ sender in APPROVERS? ── no ──► skip (issue waits for an approver)
+   ▼ yes
+ delete factory/bench/ (hidden tests)
+ factory/triage-plan.ts fetch (GITHUB_TOKEN): issue + approvers' comments ─► issue.json
+ triage agent: pi, tools read/grep/find/ls ─► JSON {decision, reason, question}
+   ├─ blocked ─► bot: **Question** comment, new → blocked
+   └─ triaged ─► plan agent (same tools) ─► Markdown, checked: starts "Changes:", no oracle path
+                 bot: **Plan** comment, new → triaged
+ failure ─► new → blocked + comment with run link
+ [HUMAN reads plan, adds factory:planned] ──► build station
+```
+
+Safety choices:
+
+| Choice | Against |
+|--------|---------|
+| only approvers start it | spend and untrusted issue text from anyone |
+| read-only tools, no shell | agent changing files or using tokens |
+| agent never has a GitHub token; `fetch` runs before, App token after | agent acting on GitHub |
+| issue text wrapped as data; only approvers' comments included | prompt injection via issue or comments |
+| `factory/bench/` deleted; plan rejected if it names it | plan pointing the build agent at the oracle |
+| build uses only a plan edited before approval | plan changed after the human read it |
+
+Blocked loop: an approver answers the question in a comment, then re-adds
+`factory:new`. The author's own answer reaches the agent only if the author
+is an approver.
 
 ## Runbook: manual stations (step A)
 
