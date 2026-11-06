@@ -27,6 +27,17 @@ export function complete(list: TodoList, id: number): TodoList {
   };
 }
 
+export function edit(list: TodoList, id: number, text: string): TodoList {
+  if (text.trim() === "") throw new TodoError("text is required");
+  if (!list.items.some((t) => t.id === id)) {
+    throw new TodoError(`no todo with id ${id}`);
+  }
+  return {
+    ...list,
+    items: list.items.map((t) => (t.id === id ? { ...t, text } : t)),
+  };
+}
+
 export function remove(list: TodoList, id: number): TodoList {
   if (!list.items.some((t) => t.id === id)) {
     throw new TodoError(`no todo with id ${id}`);
