@@ -17,12 +17,15 @@ A missing file means an empty list.
 | `todo done <id>`   | `done <id>`                 | 0    |
 | `todo undone <id>` | `undone <id>`               | 0    |
 | `todo rm <id>`     | `removed <id>`              | 0    |
+| `todo clear`       | `cleared <count>`           | 0    |
 | `todo edit <id> <text>` | `edited <id>`          | 0    |
 
 `list` line format: `[ ] <id> <text>` or `[x] <id> <text>`, in id order.
 Empty list prints nothing.
 
 Ids are positive integers, assigned increasing from 1, never reused.
+`clear` removes all done items and keeps open ones; ids are never reused
+(including the highest id).
 
 `edit` replaces an item's text; its id and done state are unchanged.
 

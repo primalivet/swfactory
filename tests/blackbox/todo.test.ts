@@ -52,6 +52,39 @@ test("ids are never reused after removing the highest id", () => {
   assert.equal(todo("add", "b").out, "added 2");
 });
 
+test("clear removes done items and keeps open ones", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("add", "b");
+  todo("add", "c");
+  todo("done", "1");
+  todo("done", "3");
+  assert.deepEqual(todo("clear"), { out: "cleared 2", err: "", code: 0 });
+  assert.equal(todo("list").out, "[ ] 2 b");
+});
+
+test("clear with no done items removes nothing", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("add", "b");
+  assert.deepEqual(todo("clear"), { out: "cleared 0", err: "", code: 0 });
+  assert.equal(todo("list").out, "[ ] 1 a\n[ ] 2 b");
+});
+
+test("clear on an empty list", () => {
+  const todo = session();
+  assert.deepEqual(todo("clear"), { out: "cleared 0", err: "", code: 0 });
+  assert.equal(todo("list").out, "");
+});
+
+test("ids are never reused after clearing the highest id", () => {
+  const todo = session();
+  todo("add", "a");
+  todo("done", "1");
+  todo("clear");
+  assert.equal(todo("add", "b").out, "added 2");
+});
+
 test("edit replaces an item's text", () => {
   const todo = session();
   todo("add", "buy milk");
