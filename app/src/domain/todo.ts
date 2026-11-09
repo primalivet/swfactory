@@ -54,3 +54,8 @@ export function remove(list: TodoList, id: number): TodoList {
   }
   return { ...list, items: list.items.filter((t) => t.id !== id) };
 }
+
+export function clear(list: TodoList): [TodoList, number] {
+  const items = list.items.filter((t) => !t.done);
+  return [{ ...list, items }, list.items.length - items.length];
+}
