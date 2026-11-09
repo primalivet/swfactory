@@ -34,13 +34,13 @@ automated one by one.
 | Factory part   | File                                   |
 |----------------|----------------------------------------|
 | intent         | `app/SPEC.md`, issue template          |
-| queue + states | `factory/github.ts` (labels)           |
+| queue + states | `factory/github.ts` (labels), `factory/lifecycle.ts` (moves, GitHub writes) |
 | GitHub setup   | `factory/github.ts`                    |
 | oracle         | `tests/blackbox/`                      |
 | gates          | `.github/workflows/ci.yml`, `factory/gates/` |
 | review gate    | branch protection (`factory/github.ts`) |
 | deploy         | `.github/workflows/release.yml`        |
-| terminal state | `.github/workflows/done.yml`           |
+| terminal state | `.github/workflows/done.yml` → `factory/lifecycle.ts close` |
 | monitor        | `.github/workflows/monitor.yml`        |
 | triage + plan station | `.github/workflows/stations.yml` (job `triage-plan`), `factory/triage-plan.ts` |
 | build station  | `.github/workflows/stations.yml` (job `build`), `factory/build-task.ts`, `factory/loop.ts` |
@@ -207,7 +207,8 @@ key, update the secret, delete the old key on the App page.
 
 ## Build station (`.github/workflows/stations.yml`, job `build`)
 
-Starts when an approver labels an issue `factory:planned`.
+Starts when an approver labels an issue `factory:planned`. Label moves, the
+secret scan and the PR are `factory/lifecycle.ts` subcommands.
 
 ```
  sender in APPROVERS? ── no ──► fail → factory:blocked
@@ -244,7 +245,8 @@ week, set on the key in OpenRouter).
 ## Triage + plan station (`.github/workflows/stations.yml`, job `triage-plan`)
 
 Starts when an approver labels an issue `factory:new` (opening it from the
-template as an approver does that).
+template as an approver does that). Comments and label moves are
+`factory/lifecycle.ts post-triage` and `fail`.
 
 ```
  sender in APPROVERS? ── no ──► skip (issue waits for an approver)
@@ -253,7 +255,7 @@ template as an approver does that).
  factory/triage-plan.ts fetch (GITHUB_TOKEN): issue + approvers' comments ─► issue.json
  triage agent: pi, tools read/grep/find/ls ─► JSON {decision, reason, question}
    ├─ blocked ─► bot: **Question** comment, new → blocked
-   └─ triaged ─► plan agent (same tools) ─► Markdown, checked: starts "Changes:", no oracle path
+   └─ triaged ─► plan agent (same tools) ─► Markdown, checked: has a "Changes" line, no oracle path
                  bot: **Plan** comment, new → triaged
  failure ─► new → blocked + comment with run link
  [HUMAN reads plan, adds factory:planned] ──► build station

@@ -1,5 +1,5 @@
 # STATIONS started by an issue label. One workflow, so each label change starts one run;
-# jobs whose label does not match are skipped.
+# jobs whose label does not match are skipped. Lifecycle rules and GitHub writes: factory/lifecycle.ts.
 name: stations
 
 on:
@@ -78,48 +78,17 @@ jobs:
           app-id: ${{ secrets.TRIAGE_PLAN_BOT_APP_ID }}
           private-key: ${{ secrets.TRIAGE_PLAN_BOT_PRIVATE_KEY }}
 
-      - name: Blocked - ask
-        if: steps.triage.outputs.decision == 'blocked'
+      # Blocked: **Question** comment → factory:blocked. Triaged: **Plan** comment → factory:triaged.
+      - name: Post triage result
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: |
-          {
-            echo "**Question**"
-            echo
-            jq -r .question "$RUNNER_TEMP/triage.json"
-            echo
-            echo "Why: $(jq -r .reason "$RUNNER_TEMP/triage.json")"
-            echo
-            echo "An approver answers in a comment (only approvers' comments reach the agent), then re-adds \`factory:new\`."
-          } > "$RUNNER_TEMP/comment.md"
-          gh issue comment "$ISSUE" -R "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
-          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:new --add-label factory:blocked
-
-      - name: Triaged - post plan
-        if: steps.triage.outputs.decision == 'triaged'
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: |
-          {
-            echo "**Plan**"
-            echo
-            cat "$RUNNER_TEMP/plan.md"
-            echo
-            echo "---"
-            echo "Triaged: $(jq -r .reason "$RUNNER_TEMP/triage.json")"
-            echo "Written by the triage-plan station (\`$MODEL\`, pi $PI_VERSION). Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "Approve: an approver adds \`factory:planned\`. Editing this comment after approval excludes it from the build."
-          } > "$RUNNER_TEMP/comment.md"
-          gh issue comment "$ISSUE" -R "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
-          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:new --add-label factory:triaged
+        run: nix develop -c node factory/lifecycle.ts post-triage "$ISSUE" "$RUNNER_TEMP/triage.json" "$RUNNER_TEMP/plan.md"
 
       - name: Mark blocked on failure
         if: failure()
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: |
-          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:new --add-label factory:blocked
-          gh issue comment "$ISSUE" -R "$GITHUB_REPOSITORY" --body "Triage-plan station failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        run: nix develop -c node factory/lifecycle.ts fail "$ISSUE" triage-plan
 
   # BUILD: approver labels factory:planned → agent implements the plan → PR as swfactory-build[bot].
   build:
@@ -134,26 +103,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Only approvers can start a build
-        if: ${{ !contains(format(',{0},', env.APPROVERS), format(',{0},', github.event.sender.login)) }}
-        run: |
-          echo "::error::${{ github.event.sender.login }} is not an approver"
-          exit 1
-
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - uses: cachix/install-nix-action@v31
 
-      # One factory:* state at a time: drop all (e.g. triaged + planned), then set building.
+      - name: Only approvers can start a build
+        env:
+          SENDER: ${{ github.event.sender.login }}
+        run: nix develop -c node factory/lifecycle.ts authorize "$SENDER"
+
       - name: Mark building
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          states="$(gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json labels \
-            -q '[.labels[].name | select(startswith("factory:"))] | join(",")')"
-          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label "$states" --add-label factory:building
+        run: nix develop -c node factory/lifecycle.ts move "$ISSUE" building
 
       - name: Build task from issue
         env:
@@ -185,12 +149,7 @@ jobs:
       - name: Secret scan
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          git add -A
-          if git diff --cached | grep -qF "$OPENROUTER_API_KEY"; then
-            echo "::error::diff contains OPENROUTER_API_KEY"
-            exit 1
-          fi
+        run: nix develop -c node factory/lifecycle.ts scan-secrets
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -210,30 +169,15 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}[bot]
-        run: |
-          id="$(gh api "users/$BOT" --jq .id)"
-          git -c user.name="$BOT" -c user.email="$id+$BOT@users.noreply.github.com" \
-            commit -q -m "Implement #$ISSUE" -m "Closes #$ISSUE"
-          git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
-          gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
-            --title "$(gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json title -q .title)" \
-            --body "Closes #$ISSUE
-
-          Built by the build station (\`$MODEL\`, pi $PI_VERSION). Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-
-          \`\`\`
-          $(tail -n 5 "$RUNNER_TEMP/loop.txt")
-          \`\`\`"
+        run: nix develop -c node factory/lifecycle.ts open-pr "$ISSUE" "$RUNNER_TEMP/loop.txt"
 
       - name: Mark review
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:building --add-label factory:review
+        run: nix develop -c node factory/lifecycle.ts move "$ISSUE" review
 
       - name: Mark blocked on failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue edit "$ISSUE" -R "$GITHUB_REPOSITORY" --remove-label factory:building --add-label factory:blocked
-          gh issue comment "$ISSUE" -R "$GITHUB_REPOSITORY" --body "Build station failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        run: nix develop -c node factory/lifecycle.ts fail "$ISSUE" build
