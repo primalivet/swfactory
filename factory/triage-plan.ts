@@ -18,7 +18,7 @@ const ORACLE = ["factory/bench", "acceptance.test"];
 type Issue = { number: number; title: string; body: string; author: string; comments: { author: string; body: string }[] };
 type Decision = { decision: "triaged" | "blocked"; reason: string; question?: string };
 
-function isDecision(v: unknown): v is Decision {
+export function isDecision(v: unknown): v is Decision {
   if (typeof v !== "object" || v === null || !("decision" in v) || !("reason" in v)) return false;
   if (typeof v.reason !== "string") return false;
   if (v.decision === "triaged") return true;
@@ -112,22 +112,24 @@ function run(kind: "triage" | "plan", issueFile: string, model: string, runDir: 
   return res.text.trim();
 }
 
-const [command, arg, model, runDir] = process.argv.slice(2);
-if (command === "fetch" && arg) {
-  console.log(JSON.stringify(fetchIssue(arg), null, 2));
-} else if (command === "triage" && arg && model && runDir) {
-  const raw = run("triage", arg, model, runDir);
-  const decision: unknown = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
-  if (!isDecision(decision)) throw new Error(`triage: invalid decision: ${raw}`);
-  console.log(JSON.stringify(decision));
-} else if (command === "plan" && arg && model && runDir) {
-  const raw = run("plan", arg, model, runDir);
-  const start = raw.search(CHANGES_LINE);
-  if (start < 0) throw new Error(`plan: no "Changes" line:\n${raw}`);
-  const plan = raw.slice(start);
-  const leak = ORACLE.find((p) => plan.includes(p));
-  if (leak) throw new Error(`plan: names the hidden oracle (${leak})`);
-  console.log(plan);
-} else {
-  throw new Error("usage: triage-plan.ts fetch <issue> | triage|plan <issue.json> <model> <run-dir>");
+if (import.meta.main) {
+  const [command, arg, model, runDir] = process.argv.slice(2);
+  if (command === "fetch" && arg) {
+    console.log(JSON.stringify(fetchIssue(arg), null, 2));
+  } else if (command === "triage" && arg && model && runDir) {
+    const raw = run("triage", arg, model, runDir);
+    const decision: unknown = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+    if (!isDecision(decision)) throw new Error(`triage: invalid decision: ${raw}`);
+    console.log(JSON.stringify(decision));
+  } else if (command === "plan" && arg && model && runDir) {
+    const raw = run("plan", arg, model, runDir);
+    const start = raw.search(CHANGES_LINE);
+    if (start < 0) throw new Error(`plan: no "Changes" line:\n${raw}`);
+    const plan = raw.slice(start);
+    const leak = ORACLE.find((p) => plan.includes(p));
+    if (leak) throw new Error(`plan: names the hidden oracle (${leak})`);
+    console.log(plan);
+  } else {
+    throw new Error("usage: triage-plan.ts fetch <issue> | triage|plan <issue.json> <model> <run-dir>");
+  }
 }
