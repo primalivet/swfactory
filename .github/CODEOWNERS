@@ -1,6 +1,6 @@
 # Trust roots: files that decide how agent work is judged, or what runs with which rights.
 # A code owner must approve changes. factory/gates/protected-paths.ts reads this list from
-# the PR's base branch: changes here also need the intent-change label.
+# main: changes here also need the intent-change label, added by an approver.
 # Supported patterns: /file and /dir/ (no globs).
 
 # what is checked: intent and oracle
