@@ -9,7 +9,7 @@ on:
 permissions: {}
 
 env:
-  APPROVERS: primalivet # keep in sync with the triage-plan job's `if`
+  APPROVERS: primalivet # keep in sync with the triage-plan job's `if` and gates.yml
   MODEL: z-ai/glm-5.3-flash
   PI_VERSION: 1.4.0
   ISSUE: ${{ github.event.issue.number }}
