@@ -44,6 +44,7 @@ automated one by one.
 | monitor        | `.github/workflows/monitor.yml`        |
 | triage + plan station | `.github/workflows/stations.yml` (job `triage-plan`), `factory/triage-plan.ts` |
 | build station  | `.github/workflows/stations.yml` (job `build`), `factory/build-task.ts`, `factory/loop.ts` |
+| review agent   | `factory/review.ts` (local only, see stage 5) |
 | code owners    | `.github/CODEOWNERS`                   |
 
 ## Who does each station
@@ -358,3 +359,4 @@ Gaps found while running the factory. Revisit after the full set of examples.
 - `docs/stages/02-benchmark.md`: model benchmark with a hidden test
 - `docs/stages/03-build-station.md`: first end-to-end run of the build station
 - `docs/stages/04-triage-plan.md`: triage + plan station on a clear and a vague issue
+- `docs/stages/05-review-agent.md`: review agent (D2) measured on three merged PRs
