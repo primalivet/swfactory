@@ -37,7 +37,7 @@ automated one by one.
 | queue + states | `factory/github.ts` (labels), `factory/lifecycle.ts` (moves, GitHub writes) |
 | GitHub setup   | `factory/github.ts`                    |
 | oracle         | `tests/blackbox/`                      |
-| gates          | `.github/workflows/ci.yml`, `factory/gates/` |
+| gates          | `.github/workflows/ci.yml`, `.github/workflows/gates.yml`, `factory/gates/` |
 | review gate    | branch protection (`factory/github.ts`) |
 | deploy         | `.github/workflows/release.yml`        |
 | terminal state | `.github/workflows/done.yml` → `factory/lifecycle.ts close` |
@@ -104,11 +104,20 @@ One list: `.github/CODEOWNERS`. Two enforcers read it:
 ```
  .github/CODEOWNERS ──► GitHub: code owner must approve
         │
-        └─(base ref)─► factory/gates/protected-paths.ts: PR needs intent-change
+        └─(main)─► factory/gates/protected-paths.ts: PR needs intent-change, added by an approver
 ```
 
-The gate reads the list from the PR's base, so a PR cannot shrink it for
-itself. Only `/file` and `/dir/` patterns are supported; others fail the gate.
+The gate (`.github/workflows/gates.yml`) runs on `pull_request_target`: the
+workflow, the script and the list all come from `main`, and PR code is never
+checked out. The PR's files (incl. the old name of a renamed file) come from
+the API. A PR cannot change its own gate or shrink the list for itself.
+`intent-change` counts only if the last change to the label was "labeled" by
+an approver (`APPROVERS` in `gates.yml`), so bot tokens cannot add it. The
+result is the commit status `protected-paths` on the PR head; a check run from
+`pull_request_target` attaches to `main` and would not count.
+
+Left open: a PR can add a workflow that posts a passing `protected-paths`
+status. Code-owner review of `.github/` is the guard against that. Only `/file` and `/dir/` patterns are supported; others fail the gate.
 Cost: dependency bumps and tsconfig changes also need `intent-change`.
 
 ## Architecture rules (`factory/gates/architecture.ts`)
@@ -303,17 +312,13 @@ Do these by hand. Each one is a spec for the agent that later replaces you.
 
 Gaps found while running the factory. Revisit after the full set of examples.
 
-1. **Gates can rewrite themselves.** `pull_request` runs `ci.yml` and
-   `factory/gates/protected-paths.ts` from the PR's own merge commit, so a PR
-   can edit the gate script or the workflow, or add any passing job named
-   `protected-paths`. (The list itself is read from the base ref.) Also: anyone with write access (incl. an agent token)
-   can add `intent-change`; `enforce_admins` is off. Options:
-   - A. run the gate via `pull_request_target`: script from `main`, PR diff as data only
-   - B. CODEOWNERS + required code-owner review for `.github/`, `factory/`,
-     `app/SPEC.md`, `tests/blackbox/` (trust root = repo settings)
-   - C. gate checks *who* added `intent-change` against an allowlist
-   - D. separate review job when trust-root files change (swamp: `claude-review-integrity`)
-   Leaning A + C, then B once agents have their own identity.
+1. **Gates can rewrite themselves.** Solved with A + B + C (see Trust roots):
+   the gate runs from `main` via `pull_request_target` (A), `.github/CODEOWNERS`
+   needs code-owner review (B), `intent-change` counts only from an approver (C).
+   Left open: a PR can add a workflow that posts a passing `protected-paths`
+   status (guard: code-owner review), the label stays valid after later pushes,
+   and `enforce_admins` is off. D (a review agent for trust-root changes) is
+   part of step D2.
 2. **No terminal state.** Solved: `done.yml` strips `factory:*` when an issue
    closes and adds `factory:done` if it closed as completed. Issues closed
    before it (#1, #3, #5) keep their old labels.

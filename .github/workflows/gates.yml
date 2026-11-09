@@ -1,0 +1,34 @@
+# GATE protected-paths: trust roots change only with intent-change, added by an approver.
+# pull_request_target runs this workflow and factory/gates/ from main, so a PR cannot edit its own gate.
+# It never checks out PR code. Its check run attaches to main, so the result is a commit status on the PR head.
+name: gates
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  protected-paths:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: node factory/gates/protected-paths.ts "$PR" "$HEAD_SHA"
+        env:
+          APPROVERS: primalivet # keep in sync with stations.yml
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
